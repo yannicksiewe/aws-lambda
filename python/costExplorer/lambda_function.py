@@ -46,7 +46,7 @@ es = Elasticsearch(
     connection_class=RequestsHttpConnection
 )
 
-
+# extract data from cost explorer resources
 def extractJson():
     requestFile = client.get_cost_and_usage(
         TimePeriod={
@@ -78,11 +78,11 @@ def extractJson():
     return requestFile
 
 
-jsonFile = extractJson()
+dataFile = extractJson()
 resources = []
 costs = []
 
-for project in jsonFile['ResultsByTime'][0]['Groups']:
+for project in dataFile['ResultsByTime'][0]['Groups']:
     resources.append(project['Keys'][1])
     costs.append(project['Metrics']['BlendedCost']['Amount'])
 
@@ -94,7 +94,7 @@ dataset = {
 df = pd.DataFrame.from_dict(dataset)
 df['Blended Cost'] = df['Blended Cost'].astype(float)
 
-
+# Sum resources cost
 def return_total_cost(df):
     df_total = df['Blended Cost'].sum().round(3)
     result = '{} usd'.format(df_total)
@@ -103,19 +103,19 @@ def return_total_cost(df):
 
 total_month_cost = return_total_cost(df)
 
-
+# Build elasticsearch request
 def buildRequest():
 
     return {
         'AccountID': account_id,
-        'TimePeriod': jsonFile['ResultsByTime'][0]['TimePeriod'],
+        'TimePeriod': dataFile['ResultsByTime'][0]['TimePeriod'],
         'title': 'MONTHLY Cost Repport',
-        'Category': jsonFile['ResultsByTime'][0]['Groups'],
+        'Category': dataFile['ResultsByTime'][0]['Groups'],
         'TotalCost': total_month_cost,
         'timestamp': now
     }
 
-
+# Lambda function entrypoint
 def lambda_handler(event, context):
 
     try:
